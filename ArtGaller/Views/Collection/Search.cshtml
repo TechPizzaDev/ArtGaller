@@ -1,0 +1,15 @@
+﻿@model SearchViewModel
+@{
+	ViewData["Title"] = "Search";
+}
+
+<div>
+	<form asp-controller="Collection" asp-action="Search" method="get">
+		<input type="text" asp-for="Query" />
+		<input type="submit" value="Search"/>
+	</form>
+</div>
+
+<p>
+	@ViewData.Model.Query
+</p>
