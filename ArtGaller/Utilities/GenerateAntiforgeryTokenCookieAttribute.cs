@@ -8,7 +8,7 @@ namespace ArtGaller
     {
         public override void OnResultExecuting(ResultExecutingContext context)
         {
-            var antiforgery = (IAntiforgery)context.HttpContext.RequestServices.GetService(typeof(IAntiforgery));
+            var antiforgery = (IAntiforgery?)context.HttpContext.RequestServices.GetService(typeof(IAntiforgery));
 
             // Send the request token as a JavaScript-readable cookie
             var tokens = antiforgery.GetAndStoreTokens(context.HttpContext);

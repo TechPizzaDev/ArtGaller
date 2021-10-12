@@ -19,28 +19,24 @@
 
 <br />
 
-<div>
-	@foreach (var item in Model.Items)
+<div style="display: flex; flex-wrap: wrap; justify-content: space-around; align-items: center;">
+	@foreach (UploadInfo item in Model.Items)
 	{
-		<div>
+		<div style="text-align: center;">
 			<img src="~/Collection/Thumbnail?uploadId=@item.UploadId" />
+			<br />
 			<a href="~/Collection/Stream?uploadId=@item.UploadId">
 				@(item.DisplayName ?? item.FormFileName ?? item.CreationTime.ToString())
 			</a>
 
 			<form method="post" enctype="multipart/form-data" autocomplete="off"
 				  asp-action="Delete">
-				<div class="col-md-10">
-					<input type="text" name="uploadId" value="@item.UploadId"/>
-				</div>
 				<div class="form-group">
-					<div class="col-md-10">
-						<input type="submit" value="Delete" />
-					</div>
+					<input type="hidden" name="uploadId" value="@item.UploadId" />
+					<input type="submit" value="Delete" />
 				</div>
 			</form>
 
 		</div>
-		<br />
 	}
 </div>

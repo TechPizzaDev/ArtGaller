@@ -124,7 +124,7 @@ namespace ArtGaller.Controllers
             return new(userId.Item, uploadInfo);
         }
 
-        [ResponseCache(Location = ResponseCacheLocation.None)]
+        [ResponseCache(NoStore = true)]
         public async ValueTask<IActionResult> Stream(
             string uploadId, CancellationToken cancellationToken)
         {
