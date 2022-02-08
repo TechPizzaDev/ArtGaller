@@ -4,8 +4,6 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Net;
-using System.Security.Authentication;
 using System.Security.Claims;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,8 +15,10 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.StaticFiles;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 using Microsoft.Net.Http.Headers;
+using SixLabors.ImageSharp;
 
 namespace ArtGaller.Controllers
 {
@@ -53,12 +53,13 @@ namespace ArtGaller.Controllers
         {
             string userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (userId == null)
+            {
                 return new(Unauthorized());
-
+            }
             return new UserResult<string>(userId, userId);
         }
 
-        public IActionResult Index(int? offset, int? count)
+        public async ValueTask<IActionResult> Index(int? offset, int? count)
         {
             UserResult<string> userId = FindUserId();
             if (userId.HasError)
@@ -75,19 +76,36 @@ namespace ArtGaller.Controllers
                 actualCount = MaxViewCount;
 
             string userIdItem = userId.Item;
-            var uploadInfos = _dbContext.UploadInfos
+            IQueryable<UploadInfo> uploadInfos = _dbContext.UploadInfos
                 .Where(x => x.UserId == userIdItem)
                 .OrderBy(x => x.CreationTime)
                 .Skip(actualOffset)
                 .Take(actualCount);
 
-            var items = new List<UploadInfo>(uploadInfos);
+            List<UploadInfo> items = new();
+            Dictionary<Guid, IImageInfo> thumbnailInfos = new();
+
+            await foreach (UploadInfo uploadInfo in uploadInfos.AsAsyncEnumerable())
+            {
+                items.Add(uploadInfo);
+
+                string? thumbnailPath = GetThumbnailPath(uploadInfo);
+                if (thumbnailPath != null)
+                {
+                    IImageInfo? imageInfo = await Image.IdentifyAsync(thumbnailPath);
+                    if (imageInfo != null)
+                    {
+                        thumbnailInfos.Add(uploadInfo.UploadId, imageInfo);
+                    }
+                }
+            }
 
             return View(new CollectionViewModel
             {
                 Offset = actualOffset,
                 Count = actualCount,
-                Items = items
+                Items = items,
+                ThumbnailInfos = thumbnailInfos
             });
         }
 
@@ -97,13 +115,12 @@ namespace ArtGaller.Controllers
             if (contentType == null)
             {
                 string? contentTypeSource = uploadInfo.DisplayName ?? uploadInfo.FormFileName;
-                if (!_contentTypeProvider.TryGetContentType(contentTypeSource, out contentType))
-                    contentType = null;
+                if (contentTypeSource != null)
+                {
+                    _contentTypeProvider.TryGetContentType(contentTypeSource, out contentType);
+                }
             }
-            if (contentType == null)
-                contentType = "application/octet-stream";
-
-            return contentType;
+            return contentType ?? "application/octet-stream";
         }
 
         private async ValueTask<UserResult<UploadInfo>> FindUploadInfo(
@@ -144,7 +161,7 @@ namespace ArtGaller.Controllers
             string contentType = GetContentType(uploadInfo.Item);
 
             var fs = new FileStream(
-                uploadPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 80, useAsync: true);
+                uploadPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 4, useAsync: true);
 
             var result = new FileStreamResult(fs, contentType)
             {
@@ -156,6 +173,26 @@ namespace ArtGaller.Controllers
             return result;
         }
 
+        private static string? GetThumbnailPath(UploadInfo uploadInfo)
+        {
+            string userDataPath = GetUserDataPath(uploadInfo.UserId);
+            string uploadPath = Path.Combine(userDataPath, UploadsDirectory, uploadInfo.FileName);
+            string thumbnailPath = Path.Combine(userDataPath, ThumbnailDirectory, uploadInfo.FileName);
+
+            if (System.IO.File.Exists(thumbnailPath))
+            {
+                return thumbnailPath;
+            }
+            else if (System.IO.File.Exists(uploadPath))
+            {
+                return uploadPath;
+            }
+            else
+            {
+                return null;
+            }
+        }
+
         [ResponseCache(Duration = FileCacheDuration, Location = ResponseCacheLocation.Any)]
         public async ValueTask<IActionResult> Thumbnail(
             string uploadId, CancellationToken cancellationToken)
@@ -164,20 +201,8 @@ namespace ArtGaller.Controllers
             if (uploadInfo.HasError)
                 return uploadInfo.Error;
 
-            string userDataPath = GetUserDataPath(uploadInfo.UserId);
-            string uploadPath = Path.Combine(userDataPath, UploadsDirectory, uploadInfo.Item.FileName);
-            string thumbnailPath = Path.Combine(userDataPath, ThumbnailDirectory, uploadInfo.Item.FileName);
-
-            string streamPath;
-            if (System.IO.File.Exists(thumbnailPath))
-            {
-                streamPath = thumbnailPath;
-            }
-            else if (System.IO.File.Exists(uploadPath))
-            {
-                streamPath = uploadPath;
-            }
-            else
+            string? streamPath = GetThumbnailPath(uploadInfo.Item);
+            if (streamPath == null)
             {
                 return NotFound();
             }
@@ -185,7 +210,7 @@ namespace ArtGaller.Controllers
             string contentType = GetContentType(uploadInfo.Item);
 
             var fs = new FileStream(
-                streamPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 80, useAsync: true);
+                streamPath, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 4, useAsync: true);
 
             Response.RegisterForDisposeAsync(fs);
             return File(fs, contentType);
@@ -223,7 +248,7 @@ namespace ArtGaller.Controllers
             {
                 await transaction.RollbackAsync(CancellationToken.None);
 
-                if (!(ex is OperationCanceledException))
+                if (ex is not OperationCanceledException)
                     throw;
 
                 return Error();
@@ -391,7 +416,7 @@ namespace ArtGaller.Controllers
                 foreach (string file in createdFiles)
                     System.IO.File.Delete(file);
 
-                if (!(ex is OperationCanceledException))
+                if (ex is not OperationCanceledException)
                     throw;
             }
 

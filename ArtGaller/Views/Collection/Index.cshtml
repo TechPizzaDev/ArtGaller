@@ -1,42 +1,54 @@
-﻿@model CollectionViewModel
+﻿@using SixLabors.ImageSharp
+
+@model CollectionViewModel
 @{
-	ViewData["Title"] = "Collection";
+    ViewData["Title"] = "Collection";
 }
 
 <form method="post" enctype="multipart/form-data" autocomplete="off"
-	  asp-action="FileUpload">
+      asp-action="FileUpload">
 
-	<div class="form-group">
-		<div class="col-md-10">
-			<p>Upload one or more files using this form:</p>
-			<input type="file" name="files" multiple />
-		</div>
-		<div class="col-md-10">
-			<input type="submit" value="Upload" />
-		</div>
-	</div>
+    <div class="form-group">
+        <div class="col-md-10">
+            <p>Upload one or more files using this form:</p>
+            <input type="file" name="files" multiple />
+        </div>
+        <div class="col-md-10">
+            <input type="submit" value="Upload" />
+        </div>
+    </div>
 </form>
 
 <br />
 
 <div style="display: flex; flex-wrap: wrap; justify-content: space-around; align-items: center;">
-	@foreach (UploadInfo item in Model.Items)
-	{
-		<div style="text-align: center;">
-			<img src="~/Collection/Thumbnail?uploadId=@item.UploadId" />
-			<br />
-			<a href="~/Collection/Stream?uploadId=@item.UploadId">
-				@(item.DisplayName ?? item.FormFileName ?? item.CreationTime.ToString())
-			</a>
+    @foreach (UploadInfo item in Model.Items)
+    {
+        <div zstyle="text-align: center;">
+            @{
+                Model.ThumbnailInfos.TryGetValue(
+                    item.UploadId, out IImageInfo? thumbnailInfo);
+            }
 
-			<form method="post" enctype="multipart/form-data" autocomplete="off"
-				  asp-action="Delete">
-				<div class="form-group">
-					<input type="hidden" name="uploadId" value="@item.UploadId" />
-					<input type="submit" value="Delete" />
-				</div>
-			</form>
+            <img src="~/Collection/Thumbnail?uploadId=@item.UploadId"
+             loading="lazy"
+             width="@(thumbnailInfo != null ? thumbnailInfo.Width : 0)"
+             height="@(thumbnailInfo != null ? thumbnailInfo.Height : 0)" />
+             
+            <br />
 
-		</div>
-	}
+            <a href="~/Collection/Stream?uploadId=@item.UploadId">
+                @(item.DisplayName ?? item.FormFileName ?? item.CreationTime.ToString())
+            </a>
+
+            <form method="post" enctype="multipart/form-data" autocomplete="off"
+              asp-action="Delete">
+                <div class="form-group">
+                    <input type="hidden" name="uploadId" value="@item.UploadId" />
+                    <input type="submit" value="Delete" />
+                </div>
+            </form>
+
+        </div>
+    }
 </div>
