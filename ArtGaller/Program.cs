@@ -1,11 +1,6 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Logging;
 
 namespace ArtGaller
 {
@@ -21,7 +16,16 @@ namespace ArtGaller
             return Host.CreateDefaultBuilder(args)
                 .ConfigureWebHostDefaults(webBuilder =>
                 {
-                    webBuilder.UseStartup<Startup>();
+                    webBuilder
+                        .ConfigureKestrel((context, options) =>
+                        {
+                            options.ConfigureEndpointDefaults(listenOptions =>
+                            {
+                                listenOptions.Protocols = HttpProtocols.Http1AndHttp2AndHttp3;
+                                listenOptions.UseHttps();
+                            });
+                        })
+                        .UseStartup<Startup>();
                 });
         }
     }

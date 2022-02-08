@@ -48,14 +48,12 @@ namespace ArtGaller
 
             services.Configure<KestrelServerOptions>(options =>
             {
-                options.Limits.MaxRequestBodySize = 1024 * 1024 * 1024 * 64L; // if don't set default value is: 30 MB
+                options.Limits.MaxRequestBodySize = 1024 * 1024 * 1024 * 64L; //default value: 30 MB
             });
 
             services.Configure<FormOptions>(x =>
             {
-                x.ValueLengthLimit = int.MaxValue;
-                x.MultipartBodyLengthLimit = int.MaxValue; // default value: 128 MB
-                x.MultipartHeadersLengthLimit = int.MaxValue;
+                x.MultipartBodyLengthLimit = 1024 * 1024 * 1024 * 64L; // default value: 128 MB
                 x.BufferBody = false;
             });
         }

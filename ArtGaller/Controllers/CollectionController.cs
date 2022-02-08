@@ -31,7 +31,7 @@ namespace ArtGaller.Controllers
 
         public const int MaxViewCount = 200;
         public const int FileCacheDuration = 60 * 60 * 24 * 7;
-        public const int ByteUploadLimit = 1024 * 1024 * 1024 * 1;
+        public const long ByteUploadLimit = 1024 * 1024 * 1024 * 4L;
 
         private readonly ApplicationDbContext _dbContext;
         private readonly SignInManager<IdentityUser> _signInManager;
@@ -314,7 +314,7 @@ namespace ArtGaller.Controllers
                             createdFiles.Add(filePath);
 
                             await using (var fileStream = new FileStream(
-                                filePath, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 80,
+                                filePath, FileMode.Create, FileAccess.Write, FileShare.None, 1024 * 4,
                                 FileOptions.Asynchronous | FileOptions.SequentialScan))
                             {
                                 await section.Body.CopyToAsync(fileStream, cancellationToken);
